@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="da">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>VU Hive Designer v19.1 (Discord Edition)</title>
+    <title>VU Hive Designer v19.1</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js"></script>
     <style>
         :root { --r5:#f1c40f; --r4:#8e44ad; --r3:#1e3799; --r2:#4a69bd; --r1:#82ccdd; --frank:#555; --bg:#1a1a1a; --txt:#eee; --panel:#2d2d2d; }
@@ -37,30 +37,32 @@
             <div class="bg-btn" style="background:#fff" onclick="setBg('white')"></div>
             <div class="bg-btn" style="background:#5aab61" onclick="setBg('grass')"></div>
             <button onclick="undo()">↩️</button><button onclick="redo()">↪️</button>
-            <button onclick="exp()" style="background:#27ae60">Eksport</button>
+            <button onclick="exp()" style="background:#27ae60">Export</button>
             <button onclick="imp()" style="background:#e67e22">Import</button>
-            <button onclick="clearAll()" style="background:#c0392b">Ryd</button>
+            <button onclick="clearAll()" style="background:#c0392b">Clear</button>
         </div>
         <div class="row">
             <select id="rSel">
                 <option value="rank-r5">R5</option><option value="rank-r4">R4</option><option value="rank-r3">R3</option>
                 <option value="rank-r2">R2</option><option value="rank-r1">R1</option>
-                <option value="frank">Frank</option><option value="n-w">Hvid Note</option><option value="n-y">Gul Note</option>
+                <option value="frank">Frankenstein</option><option value="n-w">White Note</option><option value="n-y">Yellow Note</option>
             </select>
-            <input type="text" id="pIn" placeholder="Navn...">
-            <button onclick="addI()" style="background:#e74c3c">➕</button>
+            <input type="text" id="pIn" placeholder="Name...">
+            <button onclick="addI()" style="background:#e74c3c">➕ Add</button>
         </div>
     </div>
     <div id="viewport"><div id="zoom-layer"><div id="grid"></div></div></div>
     <div id="modal"><div class="m-box">
-        <h3>Rediger</h3>
+        <h3>Edit Item</h3>
+        <label>Type / Rank:</label>
         <select id="eSel">
             <option value="rank-r5">R5</option><option value="rank-r4">R4</option><option value="rank-r3">R3</option>
             <option value="rank-r2">R2</option><option value="rank-r1">R1</option>
-            <option value="frank">Frank</option><option value="n-w">Hvid Note</option><option value="n-y">Gul Note</option>
+            <option value="frank">Frankenstein</option><option value="n-w">White Note</option><option value="n-y">Yellow Note</option>
         </select>
+        <label>Name:</label>
         <input type="text" id="eIn">
-        <div class="row"><button onclick="saveE()" style="background:#27ae60;flex:1">Gem</button><button onclick="delI()" style="background:#c0392b">Slet</button><button onclick="closeM()">X</button></div>
+        <div class="row"><button onclick="saveE()" style="background:#27ae60;flex:1">Save</button><button onclick="delI()" style="background:#c0392b">Delete</button><button onclick="closeM()">X</button></div>
     </div></div>
     <script>
         const zl = document.getElementById('zoom-layer'), gd = document.getElementById('grid');
@@ -111,19 +113,19 @@
             cur.dataset.t = t; cur.className = `obj ${t.includes('n-')?'note '+t:(t==='frank'?'frank':'shelter '+t)}`;
             cur.innerText = rt ? `${rt}\n${n}` : n; saveState(); closeM(); 
         }
-        function delI() { if(confirm("Slet?")) { cur.remove(); saveState(); closeM(); } }
+        function delI() { if(confirm("Delete item?")) { cur.remove(); saveState(); closeM(); } }
         function loadL() { 
             const d = localStorage.getItem('h_v18'), b = localStorage.getItem('h_bg'); if (b) setBg(b); 
             if (d) { history.push(d); JSON.parse(d).forEach(i => addI(i, false)); } else history.push("[]");
         }
-        function clearAll() { if(confirm("Ryd alt?")) { localStorage.removeItem('h_v18'); location.reload(); } }
+        function clearAll() { if(confirm("Clear everything?")) { localStorage.removeItem('h_v18'); location.reload(); } }
         function exp() { 
             const d = JSON.parse(localStorage.getItem('h_v18') || "[]");
             const s = d.map(i => `${map[i.t]}${i.l/20},${i.top/20},${i.n}`).join(';');
-            navigator.clipboard.writeText(s); alert("Kort Discord-kode kopieret!");
+            navigator.clipboard.writeText(s); alert("Short code copied to clipboard!");
         }
         function imp() { 
-            const s = prompt("Indsæt kode:"); if(!s) return;
+            const s = prompt("Paste code here:"); if(!s) return;
             try {
                 const parts = s.split(';');
                 const data = parts.map(p => { 
@@ -131,7 +133,7 @@
                     return { t: rmap[t], l: parseInt(rest[0])*20, top: parseInt(rest[1])*20, n: rest[2] }; 
                 });
                 renderFromData(data); saveState();
-            } catch(e) { alert("Fejl! Prøv igen."); }
+            } catch(e) { alert("Invalid code! Make sure to copy the entire string."); }
         }
         window.onload = loadL;
     </script>
