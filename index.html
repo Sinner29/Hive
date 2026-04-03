@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>VU Hive Designer v19.0</title>
+    <title>VU Hive Designer v19.1 (Discord Edition)</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js"></script>
     <style>
         :root { --r5:#f1c40f; --r4:#8e44ad; --r3:#1e3799; --r2:#4a69bd; --r1:#82ccdd; --frank:#555; --bg:#1a1a1a; --txt:#eee; --panel:#2d2d2d; }
@@ -36,8 +36,7 @@
             <div class="bg-btn" style="background:#1a1a1a" onclick="setBg('black')"></div>
             <div class="bg-btn" style="background:#fff" onclick="setBg('white')"></div>
             <div class="bg-btn" style="background:#5aab61" onclick="setBg('grass')"></div>
-            <button onclick="undo()" title="Fortryd">↩️</button>
-            <button onclick="redo()" title="Gendan">↪️</button>
+            <button onclick="undo()">↩️</button><button onclick="redo()">↪️</button>
             <button onclick="exp()" style="background:#27ae60">Eksport</button>
             <button onclick="imp()" style="background:#e67e22">Import</button>
             <button onclick="clearAll()" style="background:#c0392b">Ryd</button>
@@ -46,31 +45,26 @@
             <select id="rSel">
                 <option value="rank-r5">R5</option><option value="rank-r4">R4</option><option value="rank-r3">R3</option>
                 <option value="rank-r2">R2</option><option value="rank-r1">R1</option>
-                <option value="frank">Frankenstein</option><option value="n-w">Hvid Note</option><option value="n-y">Gul Note</option>
+                <option value="frank">Frank</option><option value="n-w">Hvid Note</option><option value="n-y">Gul Note</option>
             </select>
             <input type="text" id="pIn" placeholder="Navn...">
-            <button onclick="addI()" style="background:#e74c3c">➕ Tilføj</button>
+            <button onclick="addI()" style="background:#e74c3c">➕</button>
         </div>
     </div>
     <div id="viewport"><div id="zoom-layer"><div id="grid"></div></div></div>
-    <div id="modal">
-        <div class="m-box">
-            <h3>Rediger Brik</h3>
-            <label>Type / Rank:</label>
-            <select id="eSel">
-                <option value="rank-r5">R5</option><option value="rank-r4">R4</option><option value="rank-r3">R3</option>
-                <option value="rank-r2">R2</option><option value="rank-r1">R1</option>
-                <option value="frank">Frankenstein</option><option value="n-w">Hvid Note</option><option value="n-y">Gul Note</option>
-            </select>
-            <label>Navn:</label>
-            <input type="text" id="eIn">
-            <div class="row"><button onclick="saveE()" style="background:#27ae60;flex:1">Gem</button><button onclick="delI()" style="background:#c0392b">Slet</button><button onclick="closeM()">X</button></div>
-        </div>
-    </div>
+    <div id="modal"><div class="m-box">
+        <h3>Rediger</h3>
+        <select id="eSel">
+            <option value="rank-r5">R5</option><option value="rank-r4">R4</option><option value="rank-r3">R3</option>
+            <option value="rank-r2">R2</option><option value="rank-r1">R1</option>
+            <option value="frank">Frank</option><option value="n-w">Hvid Note</option><option value="n-y">Gul Note</option>
+        </select>
+        <input type="text" id="eIn">
+        <div class="row"><button onclick="saveE()" style="background:#27ae60;flex:1">Gem</button><button onclick="delI()" style="background:#c0392b">Slet</button><button onclick="closeM()">X</button></div>
+    </div></div>
     <script>
         const zl = document.getElementById('zoom-layer'), gd = document.getElementById('grid');
-        let sc = 0.8, px = 50, py = 150, lsc = 0.8, lpx = 50, lpy = 150;
-        let history = [], redoStack = [];
+        let sc = 0.8, px = 50, py = 150, lsc = 0.8, lpx = 50, lpy = 150, history = [], redoStack = [];
         function setBg(t) { document.body.className = 'bg-' + t; localStorage.setItem('h_bg', t); }
         const hm = new Hammer(document.getElementById('viewport'));
         hm.get('pinch').set({ enable: true });
@@ -84,35 +78,14 @@
         const map = {"rank-r5":"A","rank-r4":"B","rank-r3":"C","rank-r2":"D","rank-r1":"E","frank":"F","n-w":"G","n-y":"H"};
         const rmap = {"A":"rank-r5","B":"rank-r4","C":"rank-r3","D":"rank-r2","E":"rank-r1","F":"frank","G":"n-w","H":"n-y"};
         function getRT(t) { return t.includes('r5')?'R5':t.includes('r4')?'R4':t.includes('r3')?'R3':t.includes('r2')?'R2':t.includes('r1')?'R1':t.includes('frank')?'Frank':''; }
-        
         function saveState() {
             const data = Array.from(document.querySelectorAll('.obj')).map(el => ({ n: el.innerText.split('\n').pop(), t: el.dataset.t, l: parseInt(el.style.left), top: parseInt(el.style.top) }));
-            history.push(JSON.stringify(data));
-            if (history.length > 30) history.shift();
-            redoStack = [];
-            localStorage.setItem('h_v18', JSON.stringify(data));
+            const s = JSON.stringify(data); history.push(s); if (history.length > 30) history.shift();
+            redoStack = []; localStorage.setItem('h_v18', s);
         }
-
-        function undo() {
-            if (history.length <= 1) return;
-            redoStack.push(history.pop());
-            const last = history[history.length - 1];
-            renderFromData(JSON.parse(last));
-        }
-
-        function redo() {
-            if (redoStack.length === 0) return;
-            const next = redoStack.pop();
-            history.push(next);
-            renderFromData(JSON.parse(next));
-        }
-
-        function renderFromData(data) {
-            gd.innerHTML = "";
-            data.forEach(i => addI(i, false));
-            localStorage.setItem('h_v18', JSON.stringify(data));
-        }
-
+        function undo() { if (history.length <= 1) return; redoStack.push(history.pop()); renderFromData(JSON.parse(history[history.length - 1])); }
+        function redo() { if (redoStack.length === 0) return; const next = redoStack.pop(); history.push(next); renderFromData(JSON.parse(next)); }
+        function renderFromData(data) { gd.innerHTML = ""; data.forEach(i => addI(i, false)); localStorage.setItem('h_v18', JSON.stringify(data)); }
         function addI(d = null, s = true) {
             const t = d ? d.t : document.getElementById('rSel').value;
             let n = d ? d.n : (document.getElementById('pIn').value || "---");
@@ -124,51 +97,41 @@
             makeD(dv); let lt = 0; dv.addEventListener('touchend', () => { let c = Date.now(); if(c-lt < 300) openM(dv); lt = c; });
             gd.appendChild(dv); if (s) saveState();
         }
-
         function makeD(el) {
             let a = false, ox, oy, ix, iy;
             el.addEventListener("touchstart", (e) => { e.stopPropagation(); ox = parseInt(el.style.left); oy = parseInt(el.style.top); ix = e.touches[0].clientX / sc - ox; iy = e.touches[0].clientY / sc - oy; a = true; el.style.zIndex = 1000; });
             el.addEventListener("touchend", () => { if(!a) return; a = false; el.style.zIndex = 10; el.style.left = Math.round(parseInt(el.style.left) / 20) * 20 + "px"; el.style.top = Math.round(parseInt(el.style.top) / 20) * 20 + "px"; saveState(); });
             el.addEventListener("touchmove", (e) => { if (!a) return; e.preventDefault(); el.style.left = (e.touches[0].clientX / sc - ix) + "px"; el.style.top = (e.touches[0].clientY / sc - iy) + "px"; });
         }
-
         let cur = null;
-        function openM(el) { 
-            cur = el; 
-            document.getElementById('eIn').value = el.innerText.split('\n').pop(); 
-            document.getElementById('eSel').value = el.dataset.t;
-            document.getElementById('modal').style.display = 'flex'; 
-        }
+        function openM(el) { cur = el; document.getElementById('eIn').value = el.innerText.split('\n').pop(); document.getElementById('eSel').value = el.dataset.t; document.getElementById('modal').style.display = 'flex'; }
         function closeM() { document.getElementById('modal').style.display = 'none'; }
-        
         function saveE() { 
             const n = document.getElementById('eIn').value, t = document.getElementById('eSel').value, rt = getRT(t);
-            cur.dataset.t = t;
-            cur.className = `obj ${t.includes('n-')?'note '+t:(t==='frank'?'frank':'shelter '+t)}`;
-            cur.innerText = rt ? `${rt}\n${n}` : n;
-            saveState(); closeM(); 
+            cur.dataset.t = t; cur.className = `obj ${t.includes('n-')?'note '+t:(t==='frank'?'frank':'shelter '+t)}`;
+            cur.innerText = rt ? `${rt}\n${n}` : n; saveState(); closeM(); 
         }
-        
         function delI() { if(confirm("Slet?")) { cur.remove(); saveState(); closeM(); } }
         function loadL() { 
-            const d = localStorage.getItem('h_v18'), b = localStorage.getItem('h_bg'); 
-            if (b) setBg(b); 
-            if (d) { const parsed = JSON.parse(d); history.push(d); parsed.forEach(i => addI(i, false)); }
-            else { history.push("[]"); }
+            const d = localStorage.getItem('h_v18'), b = localStorage.getItem('h_bg'); if (b) setBg(b); 
+            if (d) { history.push(d); JSON.parse(d).forEach(i => addI(i, false)); } else history.push("[]");
         }
         function clearAll() { if(confirm("Ryd alt?")) { localStorage.removeItem('h_v18'); location.reload(); } }
         function exp() { 
             const d = JSON.parse(localStorage.getItem('h_v18') || "[]");
-            const s = d.map(i => `${map[i.t]}|${i.l}|${i.top}|${i.n}`).join(';');
-            navigator.clipboard.writeText(s); alert("Kort kode kopieret!");
+            const s = d.map(i => `${map[i.t]}${i.l/20},${i.top/20},${i.n}`).join(';');
+            navigator.clipboard.writeText(s); alert("Kort Discord-kode kopieret!");
         }
         function imp() { 
             const s = prompt("Indsæt kode:"); if(!s) return;
             try {
                 const parts = s.split(';');
-                const data = parts.map(p => { const [t, l, top, n] = p.split('|'); return { t: rmap[t], l: parseInt(l), top: parseInt(top), n: n }; });
+                const data = parts.map(p => { 
+                    const t = p[0], rest = p.substring(1).split(',');
+                    return { t: rmap[t], l: parseInt(rest[0])*20, top: parseInt(rest[1])*20, n: rest[2] }; 
+                });
                 renderFromData(data); saveState();
-            } catch(e) { alert("Fejl i kode!"); }
+            } catch(e) { alert("Fejl! Prøv igen."); }
         }
         window.onload = loadL;
     </script>
