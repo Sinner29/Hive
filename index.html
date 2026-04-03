@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>VU Hive Designer v18.1</title>
+    <title>VU Hive Designer v19.0</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js"></script>
     <style>
         :root { --r5:#f1c40f; --r4:#8e44ad; --r3:#1e3799; --r2:#4a69bd; --r1:#82ccdd; --frank:#555; --bg:#1a1a1a; --txt:#eee; --panel:#2d2d2d; }
@@ -18,18 +18,15 @@
         #viewport { width:100vw; height:100vh; position:relative; }
         #zoom-layer { position:absolute; transform-origin:0 0; width:4000px; height:4000px; }
         #grid { width:100%; height:100%; background-image: linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px); background-size:20px 20px; position:relative; }
-        
-        /* HER ER RETTELSERNE FOR RAMMERNE */
-        .obj { position:absolute; display:flex; align-items:center; justify-content:center; font-weight:bold; text-align:center; font-size:10px; line-height:1.1; box-sizing: border-box; }
-        .shelter { width:60px; height:60px; border:2px solid rgba(255,255,255,0.3); box-sizing: border-box; }
-        .frank { width:80px; height:80px; background:var(--frank)!important; border:2px solid #888; color:#fff; box-sizing: border-box; }
-        .note { width:120px; height:40px; border:2px dashed #888; color:#000; box-sizing: border-box; }
-        
+        .obj { position:absolute; display:flex; align-items:center; justify-content:center; font-weight:bold; text-align:center; font-size:10px; line-height:1.1; box-sizing: border-box; z-index:10; }
+        .shelter { width:60px; height:60px; border:2px solid rgba(255,255,255,0.3); }
+        .frank { width:80px; height:80px; background:var(--frank)!important; border:2px solid #888; color:#fff; }
+        .note { width:120px; height:40px; border:2px dashed #888; color:#000; }
         .rank-r5 { background:var(--r5); color:#000; } .rank-r4 { background:var(--r4); color:#fff; }
         .rank-r3 { background:var(--r3); color:#fff; } .rank-r2 { background:var(--r2); color:#fff; }
         .rank-r1 { background:var(--r1); color:#000; } .n-w { background:#fff; } .n-y { background:#ffeaa7; }
         #modal { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.8); z-index:2000; display:none; align-items:center; justify-content:center; }
-        .m-box { background:#333; padding:20px; border-radius:10px; width:80%; display:flex; flex-direction:column; gap:10px; }
+        .m-box { background:#333; padding:20px; border-radius:10px; width:85%; display:flex; flex-direction:column; gap:12px; }
     </style>
 </head>
 <body class="bg-black">
@@ -39,6 +36,8 @@
             <div class="bg-btn" style="background:#1a1a1a" onclick="setBg('black')"></div>
             <div class="bg-btn" style="background:#fff" onclick="setBg('white')"></div>
             <div class="bg-btn" style="background:#5aab61" onclick="setBg('grass')"></div>
+            <button onclick="undo()" title="Fortryd">↩️</button>
+            <button onclick="redo()" title="Gendan">↪️</button>
             <button onclick="exp()" style="background:#27ae60">Eksport</button>
             <button onclick="imp()" style="background:#e67e22">Import</button>
             <button onclick="clearAll()" style="background:#c0392b">Ryd</button>
@@ -54,10 +53,24 @@
         </div>
     </div>
     <div id="viewport"><div id="zoom-layer"><div id="grid"></div></div></div>
-    <div id="modal"><div class="m-box"><h3>Rediger</h3><input type="text" id="eIn"><div class="row"><button onclick="saveE()" style="background:#27ae60;flex:1">Gem</button><button onclick="delI()" style="background:#c0392b">Slet</button><button onclick="closeM()">X</button></div></div></div>
+    <div id="modal">
+        <div class="m-box">
+            <h3>Rediger Brik</h3>
+            <label>Type / Rank:</label>
+            <select id="eSel">
+                <option value="rank-r5">R5</option><option value="rank-r4">R4</option><option value="rank-r3">R3</option>
+                <option value="rank-r2">R2</option><option value="rank-r1">R1</option>
+                <option value="frank">Frankenstein</option><option value="n-w">Hvid Note</option><option value="n-y">Gul Note</option>
+            </select>
+            <label>Navn:</label>
+            <input type="text" id="eIn">
+            <div class="row"><button onclick="saveE()" style="background:#27ae60;flex:1">Gem</button><button onclick="delI()" style="background:#c0392b">Slet</button><button onclick="closeM()">X</button></div>
+        </div>
+    </div>
     <script>
         const zl = document.getElementById('zoom-layer'), gd = document.getElementById('grid');
         let sc = 0.8, px = 50, py = 150, lsc = 0.8, lpx = 50, lpy = 150;
+        let history = [], redoStack = [];
         function setBg(t) { document.body.className = 'bg-' + t; localStorage.setItem('h_bg', t); }
         const hm = new Hammer(document.getElementById('viewport'));
         hm.get('pinch').set({ enable: true });
@@ -71,6 +84,35 @@
         const map = {"rank-r5":"A","rank-r4":"B","rank-r3":"C","rank-r2":"D","rank-r1":"E","frank":"F","n-w":"G","n-y":"H"};
         const rmap = {"A":"rank-r5","B":"rank-r4","C":"rank-r3","D":"rank-r2","E":"rank-r1","F":"frank","G":"n-w","H":"n-y"};
         function getRT(t) { return t.includes('r5')?'R5':t.includes('r4')?'R4':t.includes('r3')?'R3':t.includes('r2')?'R2':t.includes('r1')?'R1':t.includes('frank')?'Frank':''; }
+        
+        function saveState() {
+            const data = Array.from(document.querySelectorAll('.obj')).map(el => ({ n: el.innerText.split('\n').pop(), t: el.dataset.t, l: parseInt(el.style.left), top: parseInt(el.style.top) }));
+            history.push(JSON.stringify(data));
+            if (history.length > 30) history.shift();
+            redoStack = [];
+            localStorage.setItem('h_v18', JSON.stringify(data));
+        }
+
+        function undo() {
+            if (history.length <= 1) return;
+            redoStack.push(history.pop());
+            const last = history[history.length - 1];
+            renderFromData(JSON.parse(last));
+        }
+
+        function redo() {
+            if (redoStack.length === 0) return;
+            const next = redoStack.pop();
+            history.push(next);
+            renderFromData(JSON.parse(next));
+        }
+
+        function renderFromData(data) {
+            gd.innerHTML = "";
+            data.forEach(i => addI(i, false));
+            localStorage.setItem('h_v18', JSON.stringify(data));
+        }
+
         function addI(d = null, s = true) {
             const t = d ? d.t : document.getElementById('rSel').value;
             let n = d ? d.n : (document.getElementById('pIn').value || "---");
@@ -80,24 +122,40 @@
             dv.dataset.t = t; dv.style.left = d ? d.l + "px" : Math.round((Math.abs(px)/sc + 100)/20)*20 + "px";
             dv.style.top = d ? d.top + "px" : Math.round((Math.abs(py)/sc + 200)/20)*20 + "px";
             makeD(dv); let lt = 0; dv.addEventListener('touchend', () => { let c = Date.now(); if(c-lt < 300) openM(dv); lt = c; });
-            gd.appendChild(dv); if (s) saveL();
+            gd.appendChild(dv); if (s) saveState();
         }
+
         function makeD(el) {
-            let a = false, ix, iy, ox, oy;
+            let a = false, ox, oy, ix, iy;
             el.addEventListener("touchstart", (e) => { e.stopPropagation(); ox = parseInt(el.style.left); oy = parseInt(el.style.top); ix = e.touches[0].clientX / sc - ox; iy = e.touches[0].clientY / sc - oy; a = true; el.style.zIndex = 1000; });
-            el.addEventListener("touchend", () => { a = false; el.style.zIndex = 10; el.style.left = Math.round(parseInt(el.style.left) / 20) * 20 + "px"; el.style.top = Math.round(parseInt(el.style.top) / 20) * 20 + "px"; saveL(); });
+            el.addEventListener("touchend", () => { if(!a) return; a = false; el.style.zIndex = 10; el.style.left = Math.round(parseInt(el.style.left) / 20) * 20 + "px"; el.style.top = Math.round(parseInt(el.style.top) / 20) * 20 + "px"; saveState(); });
             el.addEventListener("touchmove", (e) => { if (!a) return; e.preventDefault(); el.style.left = (e.touches[0].clientX / sc - ix) + "px"; el.style.top = (e.touches[0].clientY / sc - iy) + "px"; });
         }
+
         let cur = null;
-        function openM(el) { cur = el; document.getElementById('eIn').value = el.innerText.split('\n').pop(); document.getElementById('modal').style.display = 'flex'; }
-        function closeM() { document.getElementById('modal').style.display = 'none'; }
-        function saveE() { const n = document.getElementById('eIn').value, rt = getRT(cur.dataset.t); cur.innerText = rt ? `${rt}\n${n}` : n; saveL(); closeM(); }
-        function delI() { if(confirm("Slet?")) { cur.remove(); saveL(); closeM(); } }
-        function saveL() { 
-            const d = Array.from(document.querySelectorAll('.obj')).map(el => ({ n: el.innerText.split('\n').pop(), t: el.dataset.t, l: parseInt(el.style.left), top: parseInt(el.style.top) }));
-            localStorage.setItem('h_v18', JSON.stringify(d)); 
+        function openM(el) { 
+            cur = el; 
+            document.getElementById('eIn').value = el.innerText.split('\n').pop(); 
+            document.getElementById('eSel').value = el.dataset.t;
+            document.getElementById('modal').style.display = 'flex'; 
         }
-        function loadL() { const d = localStorage.getItem('h_v18'), b = localStorage.getItem('h_bg'); if (b) setBg(b); if (d) JSON.parse(d).forEach(i => addI(i, false)); }
+        function closeM() { document.getElementById('modal').style.display = 'none'; }
+        
+        function saveE() { 
+            const n = document.getElementById('eIn').value, t = document.getElementById('eSel').value, rt = getRT(t);
+            cur.dataset.t = t;
+            cur.className = `obj ${t.includes('n-')?'note '+t:(t==='frank'?'frank':'shelter '+t)}`;
+            cur.innerText = rt ? `${rt}\n${n}` : n;
+            saveState(); closeM(); 
+        }
+        
+        function delI() { if(confirm("Slet?")) { cur.remove(); saveState(); closeM(); } }
+        function loadL() { 
+            const d = localStorage.getItem('h_v18'), b = localStorage.getItem('h_bg'); 
+            if (b) setBg(b); 
+            if (d) { const parsed = JSON.parse(d); history.push(d); parsed.forEach(i => addI(i, false)); }
+            else { history.push("[]"); }
+        }
         function clearAll() { if(confirm("Ryd alt?")) { localStorage.removeItem('h_v18'); location.reload(); } }
         function exp() { 
             const d = JSON.parse(localStorage.getItem('h_v18') || "[]");
@@ -105,16 +163,11 @@
             navigator.clipboard.writeText(s); alert("Kort kode kopieret!");
         }
         function imp() { 
-            const s = prompt("Indsæt kode:");
-            if(!s) return;
+            const s = prompt("Indsæt kode:"); if(!s) return;
             try {
                 const parts = s.split(';');
-                const data = parts.map(p => {
-                    const [t, l, top, n] = p.split('|');
-                    return { t: rmap[t], l: parseInt(l), top: parseInt(top), n: n };
-                });
-                localStorage.setItem('h_v18', JSON.stringify(data));
-                location.reload();
+                const data = parts.map(p => { const [t, l, top, n] = p.split('|'); return { t: rmap[t], l: parseInt(l), top: parseInt(top), n: n }; });
+                renderFromData(data); saveState();
             } catch(e) { alert("Fejl i kode!"); }
         }
         window.onload = loadL;
